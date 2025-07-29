@@ -11,7 +11,11 @@ load_dotenv()
 
 # 创建 Flask 应用
 app = Flask(__name__)
-CORS(app)  # 启用 CORS 以允许前端访问
+CORS(app, origins=[
+    "http://localhost:5173",
+    "http://localhost:5174", 
+    "https://your-vercel-app.vercel.app"
+])
 
 # 初始化 OpenAI 客户端
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), base_url="https://api.deepseek.com")
