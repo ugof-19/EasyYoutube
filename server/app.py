@@ -14,11 +14,17 @@ app = Flask(__name__)
 CORS(app, origins=[
     "http://localhost:5173",
     "http://localhost:5174", 
-    "https://your-vercel-app.vercel.app"
+    "https://easy-youtube-chi.vercel.app",
+    "*"  # 临时允许所有域名，部署后可以限制为具体域名
 ])
 
 # 初始化 OpenAI 客户端
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), base_url="https://api.deepseek.com")
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    print("警告: 未找到 OPENAI_API_KEY 环境变量")
+    client = None
+else:
+    client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
 
 # 从 YouTube URL 中提取视频 ID
 def extract_video_id(url):
@@ -99,6 +105,10 @@ def get_transcript(video_id):
 # 使用 OpenAI API 分析视频内容
 def analyze_content(transcript):
     try:
+        # 检查OpenAI客户端是否可用
+        if client is None:
+            return "服务暂时不可用：缺少必要的API配置。请联系管理员。"
+        
         # 检查字幕是否为错误消息
         if transcript.startswith("无法获取视频字幕"):
             return "很抱歉，无法获取此视频的字幕内容。可能的原因：\n\n1. 视频没有提供字幕\n2. 字幕访问受到限制\n3. 网络连接问题\n\n请尝试其他视频，或稍后再试。"
@@ -133,6 +143,10 @@ def analyze_content(transcript):
 # 使用 AI 格式化字幕
 def format_transcript(transcript):
     try:
+        # 检查OpenAI客户端是否可用
+        if client is None:
+            return "服务暂时不可用：缺少必要的API配置。请联系管理员。"
+        
         print("开始使用 AI 格式化字幕")
         response = client.chat.completions.create(
             model="deepseek-chat",
@@ -277,6 +291,10 @@ def analyze_video():
 @app.route('/api/translate', methods=['POST'])
 def translate_text():
     try:
+        # 检查OpenAI客户端是否可用
+        if client is None:
+            return jsonify({'error': True, 'message': '服务暂时不可用：缺少必要的API配置'}), 500
+        
         data = request.get_json()
         text = data.get('text')
         
@@ -312,6 +330,20 @@ def translate_text():
         return jsonify({'error': f'翻译失败: {str(e)}'}), 500
 
 # 健康检查路由
+@app.route('/', methods=['GET'])
+def root():
+    return jsonify({
+        'message': 'EasyYoutube API Server',
+        'status': 'running',
+        'endpoints': {
+            'health': '/api/health',
+            'transcript': '/api/transcript',
+            'analyze': '/api/analyze',
+            'format': '/api/format-transcript',
+            'translate': '/api/translate'
+        }
+    })
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({'status': 'ok'})
