@@ -2,9 +2,20 @@ import axios from 'axios';
 
 // 后端 API 的基础 URL
 // 将本地 API 地址替换为 Railway 地址
-const API_BASE_URL = import.meta.env.PROD
-  ? (import.meta.env.VITE_API_URL || 'https://easyyoutube-production-1206.up.railway.app') + '/api'
-  : 'http://localhost:5000/api';
+const getApiBaseUrl = () => {
+  if (import.meta.env.PROD) {
+    const viteApiUrl = import.meta.env.VITE_API_URL;
+    if (viteApiUrl) {
+      // 如果VITE_API_URL已经包含/api路径，直接使用
+      return viteApiUrl.endsWith('/api') ? viteApiUrl : viteApiUrl + '/api';
+    }
+    // 默认Railway地址
+    return 'https://easyyoutube-production-1206.up.railway.app/api';
+  }
+  return 'http://localhost:5000/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 /**
  * 获取 YouTube 视频原始字幕
