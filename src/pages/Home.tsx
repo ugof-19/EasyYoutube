@@ -3,7 +3,7 @@ import { Card, Button, Input, Tabs, Typography, Space, Spin, Alert, message } fr
 import { PlayCircleOutlined, FileTextOutlined, TranslationOutlined } from '@ant-design/icons';
 import { analyzeYoutubeVideo, getFormattedTranscript, translateToChineseTranscript } from '../services/youtubeService';
 
-const { Title, Paragraph, Text } = Typography;
+const { Title, Text } = Typography;
 const { TextArea } = Input;
 
 const Home: React.FC = () => {
@@ -57,41 +57,7 @@ const Home: React.FC = () => {
     }
   };
 
-  const handleFormatTranscript = async () => {
-    if (!url.trim()) {
-      message.error('请先输入视频链接');
-      return;
-    }
 
-    setFormatLoading(true);
-    try {
-      const formatted = await getFormattedTranscript(url);
-      setFormattedTranscript(formatted.formatted_transcript);
-      message.success('字幕格式化完成！');
-    } catch (err: any) {
-      message.error('格式化失败：' + (err.message || '未知错误'));
-    } finally {
-      setFormatLoading(false);
-    }
-  };
-
-  const handleTranslate = async () => {
-    if (!formattedTranscript) {
-      message.error('请先格式化字幕');
-      return;
-    }
-
-    setTranslateLoading(true);
-    try {
-      const translated = await translateToChineseTranscript(formattedTranscript);
-      setTranslation(translated);
-      message.success('翻译完成！');
-    } catch (err: any) {
-      message.error('翻译失败：' + (err.message || '未知错误'));
-    } finally {
-      setTranslateLoading(false);
-    }
-  };
 
   const tabItems = [
     {

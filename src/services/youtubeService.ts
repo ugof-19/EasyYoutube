@@ -1,7 +1,10 @@
 import axios from 'axios';
 
 // 后端 API 的基础 URL
-const API_BASE_URL = 'http://localhost:5000/api';
+// 将本地 API 地址替换为 Railway 地址
+const API_BASE_URL = import.meta.env.PROD
+  ? (import.meta.env.VITE_API_URL || 'https://easyyoutube-production.up.railway.app') + '/api'
+  : 'http://localhost:5000/api';
 
 /**
  * 获取 YouTube 视频原始字幕
