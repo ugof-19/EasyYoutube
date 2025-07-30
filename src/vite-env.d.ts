@@ -2,7 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_API_URL: string
-  // 更多环境变量...
+  readonly VITE_BACKEND_URL: string
 }
 
 interface ImportMeta {
