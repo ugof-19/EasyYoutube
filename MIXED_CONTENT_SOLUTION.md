@@ -145,19 +145,44 @@ chrome.exe --disable-web-security --user-data-dir="C:/temp/chrome_dev" --allow-r
 
 ### 1. 检查HTTPS访问
 ```bash
-# 测试HTTPS端点
+# 测试HTTPS端点（-k 忽略证书验证）
 curl -k https://150.158.107.5/api/analyze -X POST \
   -H "Content-Type: application/json" \
   -d '{"url":"https://www.youtube.com/watch?v=test"}'
 ```
 
-### 2. 检查浏览器控制台
+### 2. 解决证书验证错误
+
+如果遇到 `ERR_CERT_AUTHORITY_INVALID` 错误，这是因为使用了自签名证书。有以下解决方案：
+
+#### 方案A：获取受信任的SSL证书（推荐）
+```bash
+# 如果有域名，使用Let's Encrypt免费证书
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d your-domain.com
+```
+
+#### 方案B：在浏览器中接受自签名证书
+1. 直接访问 `https://150.158.107.5`
+2. 点击"高级"或"Advanced"
+3. 点击"继续访问"或"Proceed to 150.158.107.5 (unsafe)"
+4. 这将添加证书例外，允许HTTPS访问
+
+#### 方案C：使用Cloudflare Tunnel（最简单）
+```bash
+# 这将提供受信任的HTTPS证书
+cloudflared tunnel --url http://localhost:8080
+# 使用生成的 https://xxx.trycloudflare.com 地址
+```
+
+### 3. 检查浏览器控制台
 打开 https://easy-youtube-alpha.vercel.app/ 并检查：
 - 不再有Mixed Content错误
+- 不再有ERR_CERT_AUTHORITY_INVALID错误
 - API请求成功发送
 - 服务器响应正常
 
-### 3. 测试完整功能
+### 4. 测试完整功能
 - 输入YouTube URL
 - 点击分析按钮
 - 检查是否正常获取结果
@@ -174,7 +199,73 @@ curl -k https://150.158.107.5/api/analyze -X POST \
 - 自动HTTPS
 - 快速部署
 
+## 重要更新：CORS配置已修复
+
+后端代码已更新，现在包含正确的CORS配置以允许来自 `https://easy-youtube-alpha.vercel.app` 的请求。
+
+### 重新部署后端服务
+
+更新CORS配置后，需要重新构建和部署Docker容器：
+
+```bash
+# 停止当前容器
+docker stop easyyoutube-backend
+docker rm easyyoutube-backend
+
+# 重新构建镜像（使用国内优化版本）
+docker build -f Dockerfile.china -t easyyoutube-backend .
+
+# 重新运行容器
+docker run -d --name easyyoutube-backend \
+  -p 8080:8080 \
+  -p 443:443 \
+  --env-file .env \
+  easyyoutube-backend
+```
+
+如果使用Nginx SSL配置，还需要重新配置：
+
+```bash
+# 重新启动Nginx（如果已配置）
+sudo systemctl restart nginx
+
+# 测试HTTPS和CORS
+curl -k -H "Origin: https://easy-youtube-alpha.vercel.app" \
+  https://150.158.107.5/api/health
+```
+
 ## 故障排除
+
+### ERR_CERT_AUTHORITY_INVALID 错误（重要）
+
+这是最常见的错误，表示浏览器不信任自签名证书。
+
+#### 立即解决方案：
+
+**方法1：浏览器接受证书（最快）**
+1. 在新标签页中访问：`https://150.158.107.5`
+2. 看到安全警告时，点击"高级"或"Advanced"
+3. 点击"继续访问 150.158.107.5（不安全）"或"Proceed to 150.158.107.5 (unsafe)"
+4. 刷新你的 Vercel 前端页面，错误应该消失
+
+**方法2：使用 Cloudflare Tunnel（推荐）**
+```bash
+# 在服务器上运行
+cloudflared tunnel --url http://localhost:8080
+
+# 复制生成的 https://xxx.trycloudflare.com 地址
+# 在 Vercel 环境变量中设置：
+# VITE_API_BASE_URL=https://xxx.trycloudflare.com/api
+```
+
+**方法3：获取真实SSL证书**
+```bash
+# 如果你有域名
+sudo certbot --nginx -d your-domain.com
+
+# 如果没有域名，考虑购买一个便宜的域名
+# 然后使用 Let's Encrypt 免费证书
+```
 
 ### 如果Nginx配置失败
 ```bash

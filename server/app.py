@@ -14,6 +14,7 @@ app = Flask(__name__)
 CORS(app, origins=[
     "http://localhost:5173",
     "http://localhost:5174", 
+    "https://easy-youtube-alpha.vercel.app",
     "https://easy-youtube-chi.vercel.app",
     "*"  # 临时允许所有域名，部署后可以限制为具体域名
 ])
