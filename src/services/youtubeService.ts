@@ -2,17 +2,19 @@ import axios from 'axios';
 
 // 后端 API 的基础 URL
 // 支持 Railway、Google Cloud Run、腾讯云等多种部署方式
-const getApiBaseUrl = () => {
-  if (import.meta.env.PROD) {
-    const viteApiUrl = import.meta.env.VITE_API_URL;
-    if (viteApiUrl) {
-      // 如果VITE_API_URL已经包含/api路径，直接使用
-      return viteApiUrl.endsWith('/api') ? viteApiUrl : viteApiUrl + '/api';
-    }
-    // 默认使用环境变量或腾讯云地址
-    return import.meta.env.VITE_BACKEND_URL || 'http://150.158.107.5:8080/api';
+const getApiBaseUrl = (): string => {
+  // 开发环境或本地测试
+  if (import.meta.env.DEV) {
+    return 'http://localhost:8080/api';
   }
-  return 'http://localhost:8080/api'; // 本地开发使用8080端口
+  
+  // 生产环境 - 优先使用环境变量
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  
+  // 默认HTTPS地址（需要配置SSL）
+  return 'https://150.158.107.5/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();

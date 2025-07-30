@@ -105,6 +105,172 @@ curl http://150.158.107.5:8080/api/health
    - 测试 YouTube 链接处理功能
    - 检查 API 请求是否成功
 
+## 重要：解决Mixed Content错误
+
+### 问题说明
+当Vercel前端（HTTPS）尝试连接腾讯云后端（HTTP）时，浏览器会阻止请求并显示Mixed Content错误：
+```
+Mixed Content: The page at 'https://easy-youtube-alpha.vercel.app/' was loaded over HTTPS, but requested an insecure XMLHttpRequest endpoint 'http://150.158.107.5:8080/api/analyze'. This request has been blocked; the content must be served over HTTPS.
+```
+
+### 解决方案1：配置SSL证书（推荐）
+
+#### 1.1 安装Nginx和Certbot
+```bash
+# 更新系统
+sudo apt update
+sudo apt upgrade -y
+
+# 安装Nginx
+sudo apt install nginx -y
+
+# 安装Certbot
+sudo apt install certbot python3-certbot-nginx -y
+```
+
+#### 1.2 配置域名（如果有域名）
+如果你有域名，将域名解析到服务器IP：
+```bash
+# 创建Nginx配置
+sudo nano /etc/nginx/sites-available/easyyoutube
+```
+
+添加以下配置：
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+    
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+```bash
+# 启用配置
+sudo ln -s /etc/nginx/sites-available/easyyoutube /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+
+# 获取SSL证书
+sudo certbot --nginx -d your-domain.com
+```
+
+#### 1.3 使用IP配置SSL（无域名情况）
+如果没有域名，可以使用自签名证书：
+
+```bash
+# 生成自签名证书
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /etc/ssl/private/easyyoutube.key \
+    -out /etc/ssl/certs/easyyoutube.crt
+
+# 配置Nginx使用HTTPS
+sudo nano /etc/nginx/sites-available/easyyoutube-ssl
+```
+
+添加配置：
+```nginx
+server {
+    listen 443 ssl;
+    server_name 150.158.107.5;
+    
+    ssl_certificate /etc/ssl/certs/easyyoutube.crt;
+    ssl_certificate_key /etc/ssl/private/easyyoutube.key;
+    
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+server {
+    listen 80;
+    server_name 150.158.107.5;
+    return 301 https://$server_name$request_uri;
+}
+```
+
+```bash
+# 启用SSL配置
+sudo ln -s /etc/nginx/sites-available/easyyoutube-ssl /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### 解决方案2：临时开发解决方案
+
+#### 2.1 在Vercel中设置环境变量
+在Vercel项目设置中添加：
+```
+VITE_API_BASE_URL=http://150.158.107.5:8080/api
+```
+
+**注意：** 由于Mixed Content限制，这种方法在生产环境中不会生效。建议使用解决方案1或3。
+
+#### 2.2 前端代码已更新
+前端代码已更新为支持环境变量配置：
+```typescript
+const getApiBaseUrl = (): string => {
+  // 开发环境或本地测试
+  if (import.meta.env.DEV) {
+    return 'http://localhost:8080/api';
+  }
+  
+  // 生产环境 - 优先使用环境变量
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  
+  // 默认HTTPS地址（需要配置SSL）
+  return 'https://150.158.107.5/api';
+};
+```
+
+#### 2.3 浏览器临时解决方案（仅用于测试）
+在Chrome中启动时添加参数（不推荐生产使用）：
+```bash
+chrome.exe --disable-web-security --user-data-dir="C:/temp/chrome_dev"
+```
+
+### 解决方案3：使用Cloudflare Tunnel（推荐）
+
+#### 3.1 安装Cloudflare Tunnel
+```bash
+# 下载cloudflared
+wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i cloudflared-linux-amd64.deb
+
+# 登录Cloudflare
+cloudflared tunnel login
+
+# 创建tunnel
+cloudflared tunnel create easyyoutube
+
+# 配置tunnel
+mkdir -p ~/.cloudflared
+cat > ~/.cloudflared/config.yml << EOF
+tunnel: easyyoutube
+credentials-file: /home/ubuntu/.cloudflared/[tunnel-id].json
+
+ingress:
+  - hostname: your-subdomain.your-domain.com
+    service: http://localhost:8080
+  - service: http_status:404
+EOF
+
+# 运行tunnel
+cloudflared tunnel run easyyoutube
+```
+
 ## 安全优化建议
 
 ### 1. 限制 CORS 源
@@ -112,7 +278,7 @@ curl http://150.158.107.5:8080/api/health
 ```python
 # 在生产环境中，限制 CORS 到具体域名
 CORS(app, origins=[
-    "https://your-vercel-app.vercel.app",
+    "https://easy-youtube-alpha.vercel.app",
     "https://your-custom-domain.com"
 ])
 ```
