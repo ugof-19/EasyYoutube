@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // 后端 API 的基础 URL
-// 支持 Railway、Google Cloud Run 等多种部署方式
+// 支持 Railway、Google Cloud Run、腾讯云等多种部署方式
 const getApiBaseUrl = () => {
   if (import.meta.env.PROD) {
     const viteApiUrl = import.meta.env.VITE_API_URL;
@@ -9,10 +9,10 @@ const getApiBaseUrl = () => {
       // 如果VITE_API_URL已经包含/api路径，直接使用
       return viteApiUrl.endsWith('/api') ? viteApiUrl : viteApiUrl + '/api';
     }
-    // 默认使用环境变量或Railway地址（向后兼容）
-    return import.meta.env.VITE_BACKEND_URL || 'https://easyyoutube-production-1206.up.railway.app/api';
+    // 默认使用环境变量或腾讯云地址
+    return import.meta.env.VITE_BACKEND_URL || 'http://150.158.107.5:8080/api';
   }
-  return 'http://localhost:8080/api'; // 本地开发使用8080端口匹配Cloud Run
+  return 'http://localhost:8080/api'; // 本地开发使用8080端口
 };
 
 const API_BASE_URL = getApiBaseUrl();
