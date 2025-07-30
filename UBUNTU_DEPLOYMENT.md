@@ -42,6 +42,94 @@ sudo usermod -aG docker $USER
 # 注销并重新登录以使组更改生效
 ```
 
+#### 1.1 配置 Docker 镜像源（解决网络问题）
+
+如果遇到 Docker Hub 连接超时问题，可以配置国内镜像源：
+
+```bash
+# 创建 Docker 配置目录
+sudo mkdir -p /etc/docker
+
+# 配置镜像加速器
+sudo tee /etc/docker/daemon.json <<-'EOF'
+{
+  "registry-mirrors": [
+    "https://docker.mirrors.ustc.edu.cn",
+    "https://hub-mirror.c.163.com",
+    "https://mirror.baidubce.com",
+    "https://ccr.ccs.tencentyun.com"
+  ],
+  "dns": ["8.8.8.8", "8.8.4.4"]
+}
+EOF
+
+# 重启 Docker 服务
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+
+# 验证配置
+docker info | grep -A 10 "Registry Mirrors"
+```
+
+#### 1.2 网络问题诊断和解决方案
+
+如果仍然遇到网络超时问题，可以尝试以下解决方案：
+
+**方案一：网络诊断**
+```bash
+# 测试网络连接
+ping -c 4 registry-1.docker.io
+nslookup registry-1.docker.io
+
+# 测试 HTTPS 连接
+curl -I https://registry-1.docker.io/v2/
+
+# 检查 DNS 设置
+cat /etc/resolv.conf
+```
+
+**方案二：使用代理（如果有）**
+```bash
+# 临时设置代理
+export HTTP_PROXY=http://your-proxy:port
+export HTTPS_PROXY=http://your-proxy:port
+
+# 或者配置 Docker 代理
+sudo mkdir -p /etc/systemd/system/docker.service.d
+sudo tee /etc/systemd/system/docker.service.d/http-proxy.conf <<-'EOF'
+[Service]
+Environment="HTTP_PROXY=http://your-proxy:port"
+Environment="HTTPS_PROXY=http://your-proxy:port"
+Environment="NO_PROXY=localhost,127.0.0.1"
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+
+**方案三：使用本地镜像或离线安装**
+```bash
+# 如果有其他服务器可以访问 Docker Hub，可以先拉取镜像然后导出
+# 在可访问的服务器上：
+docker pull python:3.11-slim
+docker save python:3.11-slim > python-3.11-slim.tar
+
+# 传输到目标服务器后导入：
+docker load < python-3.11-slim.tar
+```
+
+**方案四：修改 Dockerfile 使用国内基础镜像**
+```bash
+# 创建备用 Dockerfile
+cp Dockerfile Dockerfile.china
+
+# 修改基础镜像为国内源
+sed -i 's|FROM python:3.11-slim|FROM registry.cn-hangzhou.aliyuncs.com/library/python:3.11-slim|g' Dockerfile.china
+
+# 使用修改后的 Dockerfile 构建
+docker build -f Dockerfile.china -t easyyoutube-backend .
+```
+
 #### 2. 部署应用
 
 ```bash
@@ -333,19 +421,37 @@ gunicorn -c gunicorn.conf.py app:app
 
 ### 常见问题
 
-1. **端口被占用**
+1. **OpenAI 客户端版本兼容性错误**
+   ```bash
+   # 错误信息：TypeError: Client.__init__() got an unexpected keyword argument 'proxies'
+   # 解决方案：更新 OpenAI 包版本
+   
+   # 停止并删除旧容器
+   docker stop easyyoutube-backend
+   docker rm easyyoutube-backend
+   
+   # 重新构建镜像（使用更新的 requirements.txt）
+   docker build -t easyyoutube-backend .
+   # 或使用国内优化版本
+   docker build -f Dockerfile.china -t easyyoutube-backend .
+   
+   # 重新运行容器
+   docker run -d --name easyyoutube-backend -p 8080:8080 --env-file .env easyyoutube-backend
+   ```
+
+2. **端口被占用**
    ```bash
    sudo netstat -tlnp | grep :8080
    sudo kill -9 <PID>
    ```
 
-2. **权限问题**
+3. **权限问题**
    ```bash
    sudo chown -R $USER:$USER /path/to/EasyYoutube
    chmod +x /path/to/EasyYoutube/server/app.py
    ```
 
-3. **依赖安装失败**
+4. **依赖安装失败**
    ```bash
    sudo apt install -y python3.11-dev build-essential
    pip install --upgrade pip setuptools wheel
