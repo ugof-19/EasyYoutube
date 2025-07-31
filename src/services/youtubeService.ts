@@ -14,7 +14,7 @@ const getApiBaseUrl = (): string => {
   }
   
   // 默认HTTPS地址（需要配置SSL）
-  return 'https://150.158.107.5/api';
+  return 'https://47.242.9.226/api';  //修改阿里云公网IP
 };
 
 const API_BASE_URL = getApiBaseUrl();
